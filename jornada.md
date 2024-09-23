@@ -61,3 +61,19 @@ cd nextjs-dashboard
 /app/ui: Contem todos os componentes de UI do app.
 /public: Contem todos os assets staticos do app como imagens.
 Config Files: Arquivos de configuração como next.config.js na raiz do app. A maioria dos arquivos foi criado pelo create-next-app. Provavelmente não vou precisar alterar seguindo o tutorial
+
+#### O 3º passo
+
+Rodar instalar as dependencias
+
+```zsh
+pnpm i
+```
+
+E depois o
+
+```zsh
+pnpm dev
+```
+
+E agora o app vai estar rodando no http://localhost:3000, sem nenhum estilo.
