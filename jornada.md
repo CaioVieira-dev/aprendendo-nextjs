@@ -77,3 +77,87 @@ pnpm dev
 ```
 
 E agora o app vai estar rodando no http://localhost:3000, sem nenhum estilo.
+
+#### O 4º passo
+
+Estilizar.
+Dentro do `nextjs-dashboard/app/ui`, tem o arquivo `global.css`. Geralmente o css global é importado num componente bem alto na arvore do app, como o [root layout](https://nextjs.org/docs/app/building-your-application/routing/pages#root-layout-required).
+No `app/layout.tsx`, importo o css
+
+```TSX
+import '@/app/ui/global.css';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+###### Algo interessante sobre o 4º passo
+
+O projeto do tutorial usa tailwind, e o `create-next-app` pergunta se você quer usar tailwind para ja deixar tudo configurado.
+Uma coisa interessante sobre o tutorial é que ele é interativo. Ele tem algumas perguntas sobre o que você acabou de ler e fazer.
+Nesse ponto do tutorial, ele pediu para adicionar uma div estilizada com tailwind acima da tag `p`, para testar o taiwind, e logo em seguida teve uma pergunta sobre o que essa div mostrava na tela.
+
+##### CSS Modules
+
+Uma outra opção que o tutorial sugere caso não queira usar Tailwind é o CSS Modules. Ele permite criar estilização de css num escopo de componente, e lida os nomes de classes evitando colisões de nomes.
+O tutorial dá um exemplo que faz a mesma coisa que a div com taiwind mas usando CSS Modules.
+Criando no `app/ui`, o arquivo `home.module.css` e colocando o seguinte:
+
+```CSS
+.shape {
+  height: 0;
+  width: 0;
+  border-bottom: 30px solid black;
+  border-left: 20px solid transparent;
+  border-right: 20px solid transparent;
+}
+```
+
+e no `app/page.tsx`, importamos o estilo e colocamos a div
+
+```TSX
+import AcmeLogo from '@/app/ui/acme-logo';
+import { ArrowRightIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import styles from '@/app/ui/home.module.css';
+
+export default function Page() {
+  return (
+    <main className="flex min-h-screen flex-col p-6">
+      <div className={styles.shape} />
+    // ...
+  )
+}
+```
+
+##### clsx
+
+clsx é uma lib que foi recomendada pelo tutorial para estilização condicional.
+EX
+
+```TSX
+import clsx from 'clsx';
+
+export default function InvoiceStatus({ status }: { status: string }) {
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center rounded-full px-2 py-1 text-sm',
+        {
+          'bg-gray-100 text-gray-500': status === 'pending',
+          'bg-green-500 text-white': status === 'paid',
+        },
+      )}
+    >
+    // ...
+)}
+```
