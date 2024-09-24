@@ -161,3 +161,67 @@ export default function InvoiceStatus({ status }: { status: string }) {
     // ...
 )}
 ```
+
+#### O 5º passo
+
+o capitulo 3 do tutorial do next.js, otimizando fontes e imagens.
+O next quando usamos o `next/font`, salva a fonte usada nos assets staticos do site.
+
+Seguindo o tutorial, no `app/ui`, criamos o `fonts.ts`.
+Importamos a fonte `Inter`, do `next/font/google` para ser a fonte primaria do app
+
+```TS
+import { Inter } from 'next/font/google';
+
+export const inter = Inter({ subsets: ['latin'] });
+```
+
+E no `<body>` do `app/layout.tsx`:
+
+```TSX
+import "@/app/ui/global.css";
+import { inter } from "@/app/ui/fonts";
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className={`${inter.className} antialiased`}>{children}</body>
+    </html>
+  );
+}
+```
+
+Adicionando a fonte no body, ela vai ser aplicada no app inteiro.
+Ao abrir o app agora, posso ver o `Inter` e `Inter_Fallback` estão aplicados.
+
+O componente `<Image>`, adiciona algumas otimizações para exibir imagens.
+No `app/page.tsx`, importamos o `<Image>` do `next/image`
+
+```TSX
+import AcmeLogo from '@/app/ui/acme-logo';
+import { ArrowRightIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { lusitana } from '@/app/ui/fonts';
+import Image from 'next/image';
+
+export default function Page() {
+  return (
+    // ...
+    <div className="flex items-center justify-center p-6 md:w-3/5 md:px-28 md:py-12">
+      {/* Add Hero Images Here */}
+      <Image
+        src="/hero-desktop.png"
+        width={1000}
+        height={760}
+        className="hidden md:block"
+        alt="Screenshots of the dashboard project showing desktop version"
+      />
+    </div>
+    //...
+  );
+}
+```
