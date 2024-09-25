@@ -225,3 +225,39 @@ export default function Page() {
   );
 }
 ```
+
+#### O 6º passo
+
+Criar layouts e paginas.
+O Next.js usa um sistema de rotas baseado em arquivos. Cada pasta representa uma parte da url.
+Podemos criar interfaces diferentes para cada pagina usando o `layout.tsx` e o `page.tsx`. O `page.tsx` é um caso especial no next, porque é o arquivo que exporta o que aparece na rota.
+
+Seguindo o tutorial, agora vamos criar a rota `/dashboard`.
+Primeiro criamos a pasta `app/dashboard`, e depois criamos o `app/dashboard/page.tsx`
+
+```TSX
+export default function Page() {
+  return <p>Dashboard Page</p>;
+}
+```
+
+Depois de criar a primeira pagina da pasta `dashboard`, o tutorial pede para criar mais duas paginas, `customers` e `invoices`.
+
+A proxima parte do tutorial é sobre o `layout.tsx`. Ele é um arquivo especial porque vai ser usado em volta de todas as paginas na mesma pasta. Para mostrar esse comportamento o tutorial pede para criar um layout com a navegação do `dashboard`
+
+```TSX
+import SideNav from '@/app/ui/dashboard/sidenav';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-screen flex-col md:flex-row md:overflow-hidden">
+      <div className="w-full flex-none md:w-64">
+        <SideNav />
+      </div>
+      <div className="flex-grow p-6 md:overflow-y-auto md:p-12">{children}</div>
+    </div>
+  );
+}
+```
+
+Um dos beneficios do `layout.tsx`, é que na navegação apenas o ""filhos"" do layout são atualizados.
