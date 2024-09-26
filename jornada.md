@@ -372,3 +372,26 @@ export default function NavLinks() {
   );
 }
 ```
+
+#### O 8º passo
+
+Preparar um banco de dados.
+O tutorial vai usar um banco PostgresSQL usando o `@vercel/postgres`.
+Primeiro o tutorial pede para criar um repositorio no github, subir o app no github, criar uma conta de hobby na vercel, e fazer o deploy do app. Agora toda vez que subir um commit, ele vai para o deploy.
+
+A proxima parte é criar o banco postgres.
+Na vercel, vamos para o `Dashboard`, aba `Storage`. Depois criamos o banco postgres.
+Depois de conectar, vamos para a aba `.env.local` e copiamos os secrets,
+criamos o `.env` no projeto e colamos os secrets.
+**Tenha certeza que o `.gitignore` está ignorando o `.env`**
+
+Depois rodamos
+
+```zsh
+pnpm i @vercel/postgres
+```
+
+##### Fazendo o seed
+
+O `app/seed/route.ts` tem um route handler do next, comentado. Agora podemos descomentar ele.
+Entrando em `http://localhost:3000/seed`, o seed será feito. Depois podemos ver os dados no banco na vercel.
