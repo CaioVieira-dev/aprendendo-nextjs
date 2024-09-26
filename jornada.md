@@ -395,3 +395,109 @@ pnpm i @vercel/postgres
 
 O `app/seed/route.ts` tem um route handler do next, comentado. Agora podemos descomentar ele.
 Entrando em `http://localhost:3000/seed`, o seed será feito. Depois podemos ver os dados no banco na vercel.
+
+#### O 9º passo
+
+Buscando dados.
+O tutorial apresenta algumas maneiras de buscar dados.
+
+Usando uma API. Geralmente usamos essa maneira quando trabalhamos com um serviço de terceiro que prove uma API, ou quando estamos buscando dados para o client e não queremos expor secrets para bancos de dados ou outros serviços.
+No next, podemos criar APIs com route handlers.
+
+Queryes no banco. Geralmente usamos essa maneira quando criamos uma API que interage com o banco de dados, ou sem usar uma API, com server components do react, fazendo a busca no servidor, sem risco de export secrets.
+
+##### Usando server components para buscar dados
+
+Por padrão, apps no next usam server components do react.
+Buscar dados em server components tem as vantagens de
+
+- suportarem promises em componentes, ou seja podemos evitar o uso de useEffect e useState para buscar dados
+- são executados no servidor e apenas o resultado vai para o client
+- podemos fazer buscas no banco sem precisar criar uma API
+
+##### Continuando o tutorial
+
+No tutorial vamos usar o `vercel postgres SDK` e `SQL` para interagir com o banco.
+
+No `app/lib/data.ts`, essa função permite fazer buscas no banco
+
+```TSX
+import { sql } from '@vercel/postgres';
+
+// ...
+```
+
+Podemos chamar `sql` num server component, mas para deixar mais facil de navegar pelos componentes, o tutorial agrupou as queries no `data.ts`.
+
+Agora vamos buscar os dados para o dashboard.
+No `app/dashboard/page.tsx`
+
+```TSX
+import { Card } from '@/app/ui/dashboard/cards';
+import RevenueChart from '@/app/ui/dashboard/revenue-chart';
+import LatestInvoices from '@/app/ui/dashboard/latest-invoices';
+import { lusitana } from '@/app/ui/fonts';
+
+export default async function Page() {
+  return (
+    <main>
+      <h1 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
+        Dashboard
+      </h1>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {/* <Card title="Collected" value={totalPaidInvoices} type="collected" /> */}
+        {/* <Card title="Pending" value={totalPendingInvoices} type="pending" /> */}
+        {/* <Card title="Total Invoices" value={numberOfInvoices} type="invoices" /> */}
+        {/* <Card
+          title="Total Customers"
+          value={numberOfCustomers}
+          type="customers"
+        /> */}
+      </div>
+      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-4 lg:grid-cols-8">
+        {/* <RevenueChart revenue={revenue}  /> */}
+        {/* <LatestInvoices latestInvoices={latestInvoices} /> */}
+      </div>
+    </main>
+  );
+}
+```
+
+Agora o componente é async, isso permite que usemos `await` para buscar dados, e tambem temos componentes comentados(para evitar erros).
+
+Vamos buscar os dados para o `<RevenueChart />`. Importamos `fetchRevenue` do `data.ts`
+
+```TSX
+import { Card } from '@/app/ui/dashboard/cards';
+import RevenueChart from '@/app/ui/dashboard/revenue-chart';
+import LatestInvoices from '@/app/ui/dashboard/latest-invoices';
+import { lusitana } from '@/app/ui/fonts';
+import { fetchRevenue } from '@/app/lib/data';
+
+export default async function Page() {
+  const revenue = await fetchRevenue();
+  // ...
+}
+```
+
+Precisamos descomentar o codigo no `app/ui/dashboard/revenue-chart.tsx`
+
+Importando os dados para `<LatestInvoices />`,
+
+```TSX
+import { Card } from '@/app/ui/dashboard/cards';
+import RevenueChart from '@/app/ui/dashboard/revenue-chart';
+import LatestInvoices from '@/app/ui/dashboard/latest-invoices';
+import { lusitana } from '@/app/ui/fonts';
+import { fetchRevenue, fetchLatestInvoices } from '@/app/lib/data';
+
+export default async function Page() {
+  const revenue = await fetchRevenue();
+  const latestInvoices = await fetchLatestInvoices();
+  // ...
+}
+```
+
+Precisamos descomentar o codigo no `app/ui/dashboard/latest-invoices`
+
+Agora o tutorial pede para seguir os exemplos e importar os dados para descomentar os `<Card>`
