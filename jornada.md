@@ -729,3 +729,35 @@ export default async function CardWrapper() {
   );
 }
 ```
+
+#### O 12º passo
+
+Combinando renderização estatica e dinamica. A pré renderização parcial(PPR).(função experimental no next 14)
+A pré renderização parcial usa o Suspense do React para exibir um componente enquanto outro carrega. O fallback do Suspense vai ser colocado no html inicial, junto com a parte estatica da pagina. O conteudo estatico fica pre renderizado no servidor e a parte dinamica carrega quando o usuario acessa a rota.
+Apenas envolver um componente num Suspense não deixa o componente em si dinamico. O Suspense é usado como uma linha entre codigo estatico e dinamico.
+Para habilitar o PPR, adicionamos a opção no `next.config.mjs`
+
+```mjs
+/** @type {import('next').NextConfig} */
+
+const nextConfig = {
+  experimental: {
+    ppr: "incremental",
+  },
+};
+
+export default nextConfig;
+```
+
+O `incremental` permite usar o PPR em rotas especificas.
+Agora adicionamos o `experimental_ppr` no `app/dashboard/layout.tsx`
+
+```TSX
+import SideNav from '@/app/ui/dashboard/sidenav';
+
+export const experimental_ppr = true;
+
+// ...
+```
+
+Podemos acabar não vendo uma diferença na performance em desenvolvimento, mas em produção deve dar para perceber.
