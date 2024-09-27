@@ -536,3 +536,196 @@ export async function fetchRevenue() {
 ```
 
 Agora a pagina `http://localhost:3000/dashboard/` demora mais para carregar. E com isso, podemos ver que com a renderização dinamica, a velocidade que a pagina carrega é a mesma que o componente mais lento.
+
+#### O 11º passo
+
+Mostrando alguma coisa enquanto os dados são carregados.
+O proximo passo no tutorial é sobre o streaming de dados.
+Uma tecnica para carregar "pedaços" da interface sem bloquear a pagina inteira.
+
+Implementando o `loading.tsx`
+No `app/dashboard`, criamos um arquivo `loading.tsx`
+
+```TSX
+export default function Loading() {
+  return <div>Loading...</div>;
+}
+```
+
+Agora a pagina `http://localhost:3000/dashboard/` abre imediatamente com um texto indicando o carregamento.
+
+Para melhorar a experiencia no loading, o tutorial pede para colocar um `skeleton`, para dar uma ideia da forma da interface enquanto estamos carregando.
+
+```TSX
+import DashboardSkeleton from '@/app/ui/skeletons';
+
+export default function Loading() {
+  return <DashboardSkeleton />;
+}
+```
+
+Um bug acontece nesse loading. Como ele esta num nivel acima, ele vai ser aplicado para `invoices` e `dustomers`.
+Para corrigir isso, usamos `route groups`, criamos uma pasta `app/dashboard/(overview)` e colocamos o `loading.tsx` e o `page.tsx` nela.
+Usar `()` no next não cria uma url `/dashboard/(overview)`, ele mantem o `/dashboard`. Esse grupo garante que o `loading.tsx` só seja aplicado ao `page.tsx`. Os grupos tambem podem ser usados para separar um app em sessões ou por times.
+
+##### Loading em componentes dentro da pagina
+
+Até agora colocamos um loading na pagina inteira, mas podemos usar loadings em componentes dentro da pagina.
+Primeiro vamos remover `fetRevenue()` no `dashboard/(overview)/page.tsx`
+
+```TSX
+import { Card } from '@/app/ui/dashboard/cards';
+import RevenueChart from '@/app/ui/dashboard/revenue-chart';
+import LatestInvoices from '@/app/ui/dashboard/latest-invoices';
+import { lusitana } from '@/app/ui/fonts';
+import { fetchLatestInvoices, fetchCardData } from '@/app/lib/data'; // remove fetchRevenue
+
+export default async function Page() {
+  const revenue = await fetchRevenue() // delete this line
+  const latestInvoices = await fetchLatestInvoices();
+  const {
+    numberOfInvoices,
+    numberOfCustomers,
+    totalPaidInvoices,
+    totalPendingInvoices,
+  } = await fetchCardData();
+
+  return (
+    // ...
+  );
+}
+```
+
+Depois importamos o `<Suspense />` do React, e colocamos ele envolvendo o `<RevenueChart />`. O fallback vai ser o `<RevenueChartSkeleton />`
+
+```TSX
+import { Card } from '@/app/ui/dashboard/cards';
+import RevenueChart from '@/app/ui/dashboard/revenue-chart';
+import LatestInvoices from '@/app/ui/dashboard/latest-invoices';
+import { lusitana } from '@/app/ui/fonts';
+import { fetchLatestInvoices, fetchCardData } from '@/app/lib/data';
+import { Suspense } from 'react';
+import { RevenueChartSkeleton } from '@/app/ui/skeletons';
+
+export default async function Page() {
+  const latestInvoices = await fetchLatestInvoices();
+  const {
+    numberOfInvoices,
+    numberOfCustomers,
+    totalPaidInvoices,
+    totalPendingInvoices,
+  } = await fetchCardData();
+
+  return (
+    <main>
+      <h1 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
+        Dashboard
+      </h1>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <Card title="Collected" value={totalPaidInvoices} type="collected" />
+        <Card title="Pending" value={totalPendingInvoices} type="pending" />
+        <Card title="Total Invoices" value={numberOfInvoices} type="invoices" />
+        <Card
+          title="Total Customers"
+          value={numberOfCustomers}
+          type="customers"
+        />
+      </div>
+      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-4 lg:grid-cols-8">
+        <Suspense fallback={<RevenueChartSkeleton />}>
+          <RevenueChart />
+        </Suspense>
+        <LatestInvoices latestInvoices={latestInvoices} />
+      </div>
+    </main>
+  );
+}
+```
+
+e depois, atualizamos o `RevenueChart`
+
+```TSX
+import { generateYAxis } from '@/app/lib/utils';
+import { CalendarIcon } from '@heroicons/react/24/outline';
+import { lusitana } from '@/app/ui/fonts';
+import { fetchRevenue } from '@/app/lib/data';
+
+// ...
+
+export default async function RevenueChart() { // Make component async, remove the props
+  const revenue = await fetchRevenue(); // Fetch data inside the component
+
+  const chartHeight = 350;
+  const { yAxisLabels, topLabel } = generateYAxis(revenue);
+
+  if (!revenue || revenue.length === 0) {
+    return <p className="mt-4 text-gray-400">No data available.</p>;
+  }
+
+  return (
+    // ...
+  );
+}
+```
+
+Agora o tutorial pede para implementar o mesmo tipo de logica para o `<LatestInvoices>`.
+Depois de repetir a logica para `<LatestInvoices>`, vamos implementar a mesma logica para os `<Card>`.
+Para evitar um efeito de "pop" que poderia ficar estranho, então vamos colocar todos os cards dentro do mesmo suspense
+No `dashboard/(overview)/page.tsx`, vamos deletar os `<Card>`, deletar a função `fetchCardData()`, importar o `<CardWrapper />`, importar o `<CardsSkeleton />`, e envolver o `<CardWrapper />` no suspense.
+
+```TSX
+import CardWrapper from '@/app/ui/dashboard/cards';
+// ...
+import {
+  RevenueChartSkeleton,
+  LatestInvoicesSkeleton,
+  CardsSkeleton,
+} from '@/app/ui/skeletons';
+
+export default async function Page() {
+  return (
+    <main>
+      <h1 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
+        Dashboard
+      </h1>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <Suspense fallback={<CardsSkeleton />}>
+          <CardWrapper />
+        </Suspense>
+      </div>
+      // ...
+    </main>
+  );
+}
+```
+
+No `app/ui/dashboard/cards.tsx`, vamos importar a função `fetchCardData()` e usar dentro do `<CardWrapper/>`(e descomentar as linhas comentadas no componente)
+
+```TSX
+// ...
+import { fetchCardData } from '@/app/lib/data';
+
+// ...
+
+export default async function CardWrapper() {
+  const {
+    numberOfInvoices,
+    numberOfCustomers,
+    totalPaidInvoices,
+    totalPendingInvoices,
+  } = await fetchCardData();
+
+  return (
+    <>
+      <Card title="Collected" value={totalPaidInvoices} type="collected" />
+      <Card title="Pending" value={totalPendingInvoices} type="pending" />
+      <Card title="Total Invoices" value={numberOfInvoices} type="invoices" />
+      <Card
+        title="Total Customers"
+        value={numberOfCustomers}
+        type="customers"
+      />
+    </>
+  );
+}
+```
