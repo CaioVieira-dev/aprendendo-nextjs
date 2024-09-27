@@ -501,3 +501,38 @@ export default async function Page() {
 Precisamos descomentar o codigo no `app/ui/dashboard/latest-invoices`
 
 Agora o tutorial pede para seguir os exemplos e importar os dados para descomentar os `<Card>`
+
+#### O 10º passo
+
+Renderização estatica e dinamica.
+Com a renderização estatica, a busca de dados acontece no servidor, na hora do build ou na revalidação dos dados. Quando um usuario acessa o app, ele vê o resultado no cache. As vantagens são o site ser mais rapido, ser mais leve no servidor, e ter um SEO um pouco melhor porque os dados do site estão carregados no servidor.
+Um site estatico é bom para blogs ou quando não temos muita interação do usuario com dados de um banco de dados ou com outros usuarios.
+O oposto da renderização estatica, é a dinamica. Com ela toda vez que a pagina é renderizada no servidor, os dados são atualizados para o usuario. As vantagens são ter dados em tempo real, conteudo especifico para cada usuario, e informação sobre a requisão (como cookies).
+
+##### Simulando buscas de dados lentas
+
+O dashboard de exemplo, deve ser dinamico.
+Vamos simular uma busca de dados no banco lenta para ver o que acontece na pagina.
+No `data.ts` descomentamos o `console.log` e `setTimeout` dentro do `fetchRevenue()`
+
+```TSX
+export async function fetchRevenue() {
+  try {
+    // We artificially delay a response for demo purposes.
+    // Don't do this in production :)
+    console.log('Fetching revenue data...');
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const data = await sql<Revenue>`SELECT * FROM revenue`;
+
+    console.log('Data fetch completed after 3 seconds.');
+
+    return data.rows;
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch revenue data.');
+  }
+}
+```
+
+Agora a pagina `http://localhost:3000/dashboard/` demora mais para carregar. E com isso, podemos ver que com a renderização dinamica, a velocidade que a pagina carrega é a mesma que o componente mais lento.
