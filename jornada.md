@@ -1584,3 +1584,196 @@ export default function NotFound() {
   );
 }
 ```
+
+#### O 16º passo
+
+Melhorando acessibilidade.
+O next inclui o plugin `eslint-plugin-jsx-a11y` para alertar sobre erros de acessibilidade como tags de imagem sem texto `alt`.
+Adicionamos o script no `package.json`
+
+```JSON
+"scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "start": "next start",
+    "lint": "next lint"
+},
+```
+
+e rodamos
+
+```zsh
+pnpm lint
+```
+
+Depois disso podemos ver os pontos que poderiam ser melhorados no app.
+
+##### Validações no cliente e no servidor
+
+Atualmente a criação de `invoice` não tem validações no formulario. Podemos clicar para criar um invoice sem preencher o form, e isso gera um erro.
+A forma mais simples de resolver seria colocar um required no form
+No `app/ui/invoices/create-form.tsx`
+
+```TSX
+<input
+  id="amount"
+  name="amount"
+  type="number"
+  placeholder="Enter USD amount"
+  className="peer block w-full rounded-md border border-gray-200 py-2 pl-10 text-sm outline-2 placeholder:text-gray-500"
+  required
+/>
+```
+
+Outra seria validar no servidor.
+No `app/ui/invoices/create-form.tsx`
+
+```TSX
+'use client';
+
+// ...
+import { useActionState } from 'react';
+```
+
+E usamos o hook
+
+```TSX
+// ...
+import { useActionState } from 'react';
+
+export default function Form({ customers }: { customers: CustomerField[] }) {
+  const [state, formAction] = useActionState(createInvoice, initialState);
+
+  return <form action={formAction}>...</form>;
+}
+```
+
+O initialState pode ser qualquer coisa que queremos, vamos usar um objeto com duas chaves vazias
+
+```TSX
+// ...
+import { createInvoice, State } from '@/app/lib/actions';
+import { useActionState } from 'react';
+
+export default function Form({ customers }: { customers: CustomerField[] }) {
+  const initialState: State = { message: null, errors: {} };
+  const [state, formAction] = useActionState(createInvoice, initialState);
+
+  return <form action={formAction}>...</form>;
+}
+```
+
+No `app/lib/actions.ts`
+
+```TS
+const FormSchema = z.object({
+  id: z.string(),
+  customerId: z.string({
+    invalid_type_error: 'Please select a customer.',
+  }),
+  amount: z.coerce
+    .number()
+    .gt(0, { message: 'Please enter an amount greater than $0.' }),
+  status: z.enum(['pending', 'paid'], {
+    invalid_type_error: 'Please select an invoice status.',
+  }),
+  date: z.string(),
+});
+```
+
+e atualizamos o `createInvoice`
+
+```TS
+export type State = {
+  errors?: {
+    customerId?: string[];
+    amount?: string[];
+    status?: string[];
+  };
+  message?: string | null;
+};
+
+export async function createInvoice(prevState: State, formData: FormData) {
+```
+
+depois mudamos o `parse` do zod e o `safeParse`
+
+```TS
+export async function createInvoice(prevState: State, formData: FormData) {
+  // Validate form fields using Zod
+  const validatedFields = CreateInvoice.safeParse({
+    customerId: formData.get('customerId'),
+    amount: formData.get('amount'),
+    status: formData.get('status'),
+  });
+
+  // ...
+}
+```
+
+O `safeParse` retorna um objeto com um `success` ou um `error`, isso ajuda a validar sem usar um try/catch.
+Agora atualizamos a validação
+
+```TS
+export async function createInvoice(prevState: State, formData: FormData) {
+  // Validate form fields using Zod
+  const validatedFields = CreateInvoice.safeParse({
+    customerId: formData.get('customerId'),
+    amount: formData.get('amount'),
+    status: formData.get('status'),
+  });
+
+  // If form validation fails, return errors early. Otherwise, continue.
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing Fields. Failed to Create Invoice.',
+    };
+  }
+   const { customerId, amount, status } = validatedFields.data;
+  // ...
+}
+```
+
+Agora no `app/ui/invoices/create-form.tsx` podemos acessar o erro no `state`
+
+```TSX
+<form action={formAction}>
+  <div className="rounded-md bg-gray-50 p-4 md:p-6">
+    {/* Customer Name */}
+    <div className="mb-4">
+      <label htmlFor="customer" className="mb-2 block text-sm font-medium">
+        Choose customer
+      </label>
+      <div className="relative">
+        <select
+          id="customer"
+          name="customerId"
+          className="peer block w-full rounded-md border border-gray-200 py-2 pl-10 text-sm outline-2 placeholder:text-gray-500"
+          defaultValue=""
+          aria-describedby="customer-error"
+        >
+          <option value="" disabled>
+            Select a customer
+          </option>
+          {customers.map((name) => (
+            <option key={name.id} value={name.id}>
+              {name.name}
+            </option>
+          ))}
+        </select>
+        <UserCircleIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500" />
+      </div>
+      <div id="customer-error" aria-live="polite" aria-atomic="true">
+        {state.errors?.customerId &&
+          state.errors.customerId.map((error: string) => (
+            <p className="mt-2 text-sm text-red-500" key={error}>
+              {error}
+            </p>
+          ))}
+      </div>
+    </div>
+    // ...
+  </div>
+</form>
+```
