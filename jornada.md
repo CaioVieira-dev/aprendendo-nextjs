@@ -2155,3 +2155,62 @@ export default function SideNav() {
   );
 }
 ```
+
+#### o 18º passo
+
+Adicionando metadados.
+O next tem uma API de metadados. Existem duas maneiras de colocar metadados.
+A primeira é com uma configuração, exportando um [objeto de metadados statico](https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadata-object), num layout.js ou page.js
+A segunda é por arquivo.
+
+---
+
+No root layout(`app/layout.tsx`) vamos adicionar metadados
+
+```TSX
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Acme Dashboard',
+  description: 'The official Next.js Course Dashboard, built with App Router.',
+  metadataBase: new URL('https://next-learn-dashboard.vercel.sh'),
+};
+
+export default function RootLayout() {
+  // ...
+}
+```
+
+Na pagina de invoices adicionamos o metadado
+
+```TSX
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Invoices | Acme Dashboard',
+};
+```
+
+Para evitar ficar repetindo o titulo em todas as paginas, podemos usar um template
+No `app/layout.tsx`
+
+```TSX
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: {
+    template: '%s | Acme Dashboard',
+    default: 'Acme Dashboard',
+  },
+  description: 'The official Next.js Learn Dashboard built with App Router.',
+  metadataBase: new URL('https://next-learn-dashboard.vercel.sh'),
+};
+```
+
+agora o metadado no `app/dashboard/invoices/page.tsx` pode ficar assim
+
+```TSX
+export const metadata: Metadata = {
+  title: 'Invoices',
+};
+```
