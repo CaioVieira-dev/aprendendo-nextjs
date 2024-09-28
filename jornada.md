@@ -1498,3 +1498,89 @@ export async function deleteInvoice(id: string) {
   revalidatePath('/dashboard/invoices');
 }
 ```
+
+#### O 15º passo
+
+Lidar com possiveis erros ao salvar dados.
+Vamos criar um `error.tsx` dentro do `app/dashboard/invoices`
+
+```TSX
+'use client';
+
+import { useEffect } from 'react';
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    // Optionally log the error to an error reporting service
+    console.error(error);
+  }, [error]);
+
+  return (
+    <main className="flex h-full flex-col items-center justify-center">
+      <h2 className="text-center">Something went wrong!</h2>
+      <button
+        className="mt-4 rounded-md bg-blue-500 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-400"
+        onClick={
+          // Attempt to recover by trying to re-render the invoices route
+          () => reset()
+        }
+      >
+        Try again
+      </button>
+    </main>
+  );
+}
+```
+
+Enquanto o `error.tsx` é util para pegar todos os erros, outra maneira de lidar com erros é usar a função `notFound`.
+
+No `dashboard/invoices/[id]/edit/page.tsx`
+
+```TSX
+import { fetchInvoiceById, fetchCustomers } from '@/app/lib/data';
+import { updateInvoice } from '@/app/lib/actions';
+import { notFound } from 'next/navigation';
+
+export default async function Page({ params }: { params: { id: string } }) {
+  const id = params.id;
+  const [invoice, customers] = await Promise.all([
+    fetchInvoiceById(id),
+    fetchCustomers(),
+  ]);
+
+  if (!invoice) {
+    notFound();
+  }
+
+  // ...
+}
+```
+
+Criamos `app/dashboard/invoices/[id]/edit/not-found.tsx`
+
+```TSX
+import Link from 'next/link';
+import { FaceFrownIcon } from '@heroicons/react/24/outline';
+
+export default function NotFound() {
+  return (
+    <main className="flex h-full flex-col items-center justify-center gap-2">
+      <FaceFrownIcon className="w-10 text-gray-400" />
+      <h2 className="text-xl font-semibold">404 Not Found</h2>
+      <p>Could not find the requested invoice.</p>
+      <Link
+        href="/dashboard/invoices"
+        className="mt-4 rounded-md bg-blue-500 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-400"
+      >
+        Go Back
+      </Link>
+    </main>
+  );
+}
+```
