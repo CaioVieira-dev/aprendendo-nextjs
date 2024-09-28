@@ -1149,3 +1149,352 @@ export default function Search({ placeholder }: { placeholder: string }) {
   }, 300);
 
 ```
+
+#### O 14º passo
+
+Editando dados.
+Vamos usar server actions para rodar codigo assincrono no servidor sem precisar de uma API que editaria os dados no banco.
+No React, podemos usar o atributo `action` na tag `<form>` para disparar uma função. Essa função recebe um `FormData` com os valores dos inputs do formulario.
+Por exemplo
+
+```TSX
+// Server Component
+export default function Page() {
+  // Action
+  async function create(formData: FormData) {
+    'use server';
+
+    // Logic to mutate data...
+  }
+
+  // Invoke the action using the "action" attribute
+  return <form action={create}>...</form>;
+}
+```
+
+Uma vantagem da server action num server component é que os forms funcionam mesmo em navegadores com javascript desabilitado.
+
+Agora vamos criar novos `invoices`.
+Vamos criar um form, uma server action, que pegar os dados do form, depois vamos validar, preparar, inserir o dados no banco(lidando com erros) e por fim vamos revalidar o cache e redirecionar o usuario.
+Na pasta `app/dashboard/invoices` adicionamos a pasta `app/dashboard/invoices/create` com um `page.tsx`
+
+```TSX
+import Form from '@/app/ui/invoices/create-form';
+import Breadcrumbs from '@/app/ui/invoices/breadcrumbs';
+import { fetchCustomers } from '@/app/lib/data';
+
+export default async function Page() {
+  const customers = await fetchCustomers();
+
+  return (
+    <main>
+      <Breadcrumbs
+        breadcrumbs={[
+          { label: 'Invoices', href: '/dashboard/invoices' },
+          {
+            label: 'Create Invoice',
+            href: '/dashboard/invoices/create',
+            active: true,
+          },
+        ]}
+      />
+      <Form customers={customers} />
+    </main>
+  );
+}
+```
+
+Agora vamos criar a server action.
+Na `app/lib` vamos criar o `app/lib/actions.ts` e vamos adicionar o `"use server"`
+
+```TSX
+'use server';
+```
+
+(daria para colocar `"use server"` dentro das funções na propria pagina, mas colocamos num arquivo separado para ficar mais organizado)
+No `app/lib/actions.ts` vamos criar a função
+
+```TSX
+'use server';
+
+export async function createInvoice(formData: FormData) {}
+```
+
+No `app/ui/invoices/create-form.tsx` vamos adicionar a action
+
+```TSX
+import { customerField } from '@/app/lib/definitions';
+import Link from 'next/link';
+import {
+  CheckIcon,
+  ClockIcon,
+  CurrencyDollarIcon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline';
+import { Button } from '@/app/ui/button';
+import { createInvoice } from '@/app/lib/actions';
+
+export default function Form({
+  customers,
+}: {
+  customers: customerField[];
+}) {
+  return (
+    <form action={createInvoice}>
+      // ...
+  )
+}
+```
+
+No `app/lib/actions.ts` vamos pegar os dados do form
+
+```TSX
+'use server';
+
+export async function createInvoice(formData: FormData) {
+  const rawFormData = {
+    customerId: formData.get('customerId'),
+    amount: formData.get('amount'),
+    status: formData.get('status'),
+  };
+  // Test it out:
+  console.log(rawFormData);
+}
+```
+
+No `app/lib/actions.ts` vamos adicionar o `zod` para validar e converter os tipos dos dados
+
+```TSX
+'use server';
+
+import { z } from 'zod';
+
+const FormSchema = z.object({
+  id: z.string(),
+  customerId: z.string(),
+  amount: z.coerce.number(),
+  status: z.enum(['pending', 'paid']),
+  date: z.string(),
+});
+
+const CreateInvoice = FormSchema.omit({ id: true, date: true });
+
+export async function createInvoice(formData: FormData) {
+  const { customerId, amount, status } = CreateInvoice.parse({
+    customerId: formData.get('customerId'),
+    amount: formData.get('amount'),
+    status: formData.get('status'),
+  });
+  const amountInCents = amount * 100;
+  const date = new Date().toISOString().split('T')[0];
+}
+```
+
+Adicionamos o dado no banco
+
+```TSX
+import { z } from 'zod';
+import { sql } from '@vercel/postgres';
+
+// ...
+
+export async function createInvoice(formData: FormData) {
+  const { customerId, amount, status } = CreateInvoice.parse({
+    customerId: formData.get('customerId'),
+    amount: formData.get('amount'),
+    status: formData.get('status'),
+  });
+  const amountInCents = amount * 100;
+  const date = new Date().toISOString().split('T')[0];
+
+  await sql`
+    INSERT INTO invoices (customer_id, amount, status, date)
+    VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
+  `;
+}
+```
+
+Depois revalidamos os dados da rota e redirecionamos
+
+```tsx
+"use server";
+
+import { z } from "zod";
+import { sql } from "@vercel/postgres";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+// ...
+
+export async function createInvoice(formData: FormData) {
+  const { customerId, amount, status } = CreateInvoice.parse({
+    customerId: formData.get("customerId"),
+    amount: formData.get("amount"),
+    status: formData.get("status"),
+  });
+  const amountInCents = amount * 100;
+  const date = new Date().toISOString().split("T")[0];
+
+  await sql`
+    INSERT INTO invoices (customer_id, amount, status, date)
+    VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
+  `;
+
+  revalidatePath("/dashboard/invoices");
+  redirect("/dashboard/invoices");
+}
+```
+
+Atualizando um `invoice`.
+Vamos criar uma rota dinamica com um `id`, ler o `invoice`, pre popular os dados do formulario e atualizar no banco.
+
+No `app/dashboard/invoices` vamos criar a pasta `app/dashboard/invoices/[id]`. O `[]` indica que a rota é dinamica, e podemos acessar o `id` na url. Dentro dessa nova pasta vamos criar um arquivo `page.tsx` dentro de uma pasta `edit`
+
+No `app/ui/invoices/buttons.tsx` vamos atualizar o link
+
+```TSX
+import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+
+// ...
+
+export function UpdateInvoice({ id }: { id: string }) {
+  return (
+    <Link
+      href={`/dashboard/invoices/${id}/edit`}
+      className="rounded-md border p-2 hover:bg-gray-100"
+    >
+      <PencilIcon className="w-5" />
+    </Link>
+  );
+}
+```
+
+No `app/dashboard/invoices/[id]/edit/page.tsx`, vamos colocar
+
+```TSX
+import Form from '@/app/ui/invoices/edit-form';
+import Breadcrumbs from '@/app/ui/invoices/breadcrumbs';
+import { fetchCustomers } from '@/app/lib/data';
+
+export default async function Page({ params }: { params: { id: string } }) {
+  const id = params.id;
+  return (
+    <main>
+      <Breadcrumbs
+        breadcrumbs={[
+          { label: 'Invoices', href: '/dashboard/invoices' },
+          {
+            label: 'Edit Invoice',
+            href: `/dashboard/invoices/${id}/edit`,
+            active: true,
+          },
+        ]}
+      />
+      <Form invoice={invoice} customers={customers} />
+    </main>
+  );
+}
+```
+
+Depois vamos buscar os dados
+
+```TSX
+import Form from '@/app/ui/invoices/edit-form';
+import Breadcrumbs from '@/app/ui/invoices/breadcrumbs';
+import { fetchInvoiceById, fetchCustomers } from '@/app/lib/data';
+
+export default async function Page({ params }: { params: { id: string } }) {
+  const id = params.id;
+  const [invoice, customers] = await Promise.all([
+    fetchInvoiceById(id),
+    fetchCustomers(),
+  ]);
+  // ...
+}
+```
+
+Agora passamos o id para a server action
+No `app/ui/invoices/edit-form.tsx`
+
+```TSX
+// ...
+import { updateInvoice } from '@/app/lib/actions';
+
+export default function EditInvoiceForm({
+  invoice,
+  customers,
+}: {
+  invoice: InvoiceForm;
+  customers: CustomerField[];
+}) {
+  const updateInvoiceWithId = updateInvoice.bind(null, invoice.id);
+
+  return (
+    <form action={updateInvoiceWithId}>
+      <input type="hidden" name="id" value={invoice.id} />
+    </form>
+  );
+}
+```
+
+Precisamos do `bind` para garantir que os valores passado para a server actions estão `encoded`
+
+No `app/lib/actions.ts` vamos criar a função `updateInvoice`
+
+```TS
+// Use Zod to update the expected types
+const UpdateInvoice = FormSchema.omit({ id: true, date: true });
+
+// ...
+
+export async function updateInvoice(id: string, formData: FormData) {
+  const { customerId, amount, status } = UpdateInvoice.parse({
+    customerId: formData.get('customerId'),
+    amount: formData.get('amount'),
+    status: formData.get('status'),
+  });
+
+  const amountInCents = amount * 100;
+
+  await sql`
+    UPDATE invoices
+    SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+    WHERE id = ${id}
+  `;
+
+  revalidatePath('/dashboard/invoices');
+  redirect('/dashboard/invoices');
+}
+```
+
+Deletando um `invoice`.
+No `app/ui/invoices/buttons.tsx` vamos colocar um form em volta do botão de deletar com a ação para deletar
+
+```TSX
+import { deleteInvoice } from '@/app/lib/actions';
+
+// ...
+
+export function DeleteInvoice({ id }: { id: string }) {
+  const deleteInvoiceWithId = deleteInvoice.bind(null, id);
+
+  return (
+    <form action={deleteInvoiceWithId}>
+      <button type="submit" className="rounded-md border p-2 hover:bg-gray-100">
+        <span className="sr-only">Delete</span>
+        <TrashIcon className="w-4" />
+      </button>
+    </form>
+  );
+}
+```
+
+No `app/lib/actions.ts` vamos criar a função `deleteInvoice`
+
+```TS
+export async function deleteInvoice(id: string) {
+  await sql`DELETE FROM invoices WHERE id = ${id}`;
+  revalidatePath('/dashboard/invoices');
+}
+```
