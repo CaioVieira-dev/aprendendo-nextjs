@@ -761,3 +761,391 @@ export const experimental_ppr = true;
 ```
 
 Podemos acabar não vendo uma diferença na performance em desenvolvimento, mas em produção deve dar para perceber.
+
+#### O 13º passo
+
+Buscas e paginação. No `/dashboard/invoices` vamos adicionar buscas e paginação
+Dentro do `dashboard/invoices/page.tsx` colocamos
+
+```TSX
+import Pagination from '@/app/ui/invoices/pagination';
+import Search from '@/app/ui/search';
+import Table from '@/app/ui/invoices/table';
+import { CreateInvoice } from '@/app/ui/invoices/buttons';
+import { lusitana } from '@/app/ui/fonts';
+import { InvoicesTableSkeleton } from '@/app/ui/skeletons';
+import { Suspense } from 'react';
+
+export default async function Page() {
+  return (
+    <div className="w-full">
+      <div className="flex w-full items-center justify-between">
+        <h1 className={`${lusitana.className} text-2xl`}>Invoices</h1>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-2 md:mt-8">
+        <Search placeholder="Search invoices..." />
+        <CreateInvoice />
+      </div>
+      {/*  <Suspense key={query + currentPage} fallback={<InvoicesTableSkeleton />}>
+        <Table query={query} currentPage={currentPage} />
+      </Suspense> */}
+      <div className="mt-5 flex w-full justify-center">
+        {/* <Pagination totalPages={totalPages} /> */}
+      </div>
+    </div>
+  );
+}
+```
+
+No `app/ui/search.tsx` vamos ver:
+
+- `"use client"`, porque vamos usar hooks e event listeners
+- `<input>`, o campo de busca
+  Vamos criar uma função `handleSearch`, e adicionar um `onChange` no `<input>`.
+
+```TSX
+'use client';
+
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+
+export default function Search({ placeholder }: { placeholder: string }) {
+  function handleSearch(term: string) {
+    console.log(term);
+  }
+
+  return (
+    <div className="relative flex flex-1 flex-shrink-0">
+      <label htmlFor="search" className="sr-only">
+        Search
+      </label>
+      <input
+        className="peer block w-full rounded-md border border-gray-200 py-[9px] pl-10 text-sm outline-2 placeholder:text-gray-500"
+        placeholder={placeholder}
+        onChange={(e) => {
+          handleSearch(e.target.value);
+        }}
+      />
+      <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
+    </div>
+  );
+}
+```
+
+Depois vamos importar `useSearchParams` do `next/navigation`
+
+```TS
+'use client';
+
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { useSearchParams } from 'next/navigation';
+
+export default function Search() {
+  const searchParams = useSearchParams();
+
+  function handleSearch(term: string) {
+    console.log(term);
+  }
+  // ...
+}
+```
+
+Dentro do `handleSearch` criamos um novo `URLSearchParams`
+
+```TS
+'use client';
+
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { useSearchParams } from 'next/navigation';
+
+export default function Search() {
+  const searchParams = useSearchParams();
+
+  function handleSearch(term: string) {
+    const params = new URLSearchParams(searchParams);
+  }
+  // ...
+}
+```
+
+`URLSearchParams` é uma api da web, que provê metodos para manipular parametros de URLs.
+O proximo passo é setar os parametros ao digitar ou apagar quando limpamos campo de busca.
+
+```TSX
+'use client';
+
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { useSearchParams } from 'next/navigation';
+
+export default function Search() {
+  const searchParams = useSearchParams();
+
+  function handleSearch(term: string) {
+    const params = new URLSearchParams(searchParams);
+    if (term) {
+      params.set('query', term);
+    } else {
+      params.delete('query');
+    }
+  }
+  // ...
+}
+```
+
+Agora podemos usar o `useRouter` e `usePathname` para atualizar a URL.
+
+```TSX
+'use client';
+
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { useSearchParams, usePathname, useRouter } from 'next/navigation';
+
+export default function Search() {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const { replace } = useRouter();
+
+  function handleSearch(term: string) {
+    const params = new URLSearchParams(searchParams);
+    if (term) {
+      params.set('query', term);
+    } else {
+      params.delete('query');
+    }
+    replace(`${pathname}?${params.toString()}`);
+  }
+}
+```
+
+Para manter o input sincronizado com o valor da url
+
+```TSX
+<input
+  className="peer block w-full rounded-md border border-gray-200 py-[9px] pl-10 text-sm outline-2 placeholder:text-gray-500"
+  placeholder={placeholder}
+  onChange={(e) => {
+    handleSearch(e.target.value);
+  }}
+  defaultValue={searchParams.get('query')?.toString()}
+/>
+```
+
+Agora no `app/dashboard/invoices/page.tsx` podemos atualizar para ver a tabela
+
+```TSX
+import Pagination from '@/app/ui/invoices/pagination';
+import Search from '@/app/ui/search';
+import Table from '@/app/ui/invoices/table';
+import { CreateInvoice } from '@/app/ui/invoices/buttons';
+import { lusitana } from '@/app/ui/fonts';
+import { Suspense } from 'react';
+import { InvoicesTableSkeleton } from '@/app/ui/skeletons';
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: {
+    query?: string;
+    page?: string;
+  };
+}) {
+  const query = searchParams?.query || '';
+  const currentPage = Number(searchParams?.page) || 1;
+
+  return (
+    <div className="w-full">
+      <div className="flex w-full items-center justify-between">
+        <h1 className={`${lusitana.className} text-2xl`}>Invoices</h1>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-2 md:mt-8">
+        <Search placeholder="Search invoices..." />
+        <CreateInvoice />
+      </div>
+      <Suspense key={query + currentPage} fallback={<InvoicesTableSkeleton />}>
+        <Table query={query} currentPage={currentPage} />
+      </Suspense>
+      <div className="mt-5 flex w-full justify-center">
+        {/* <Pagination totalPages={totalPages} /> */}
+      </div>
+    </div>
+  );
+}
+```
+
+O table vai exibir conteudos com base na query da url
+
+```TSX
+// ...
+export default async function InvoicesTable({
+  query,
+  currentPage,
+}: {
+  query: string;
+  currentPage: number;
+}) {
+  const invoices = await fetchFilteredInvoices(query, currentPage);
+  // ...
+}
+```
+
+Agora vamos adicionar um debounce para evitar disparar buscas a cada tecla digitada
+
+```zsh
+pnpm i use-debounce
+```
+
+No `<Search>`, vamos importar o `useDebouncedCallback`
+
+```TSX
+// ...
+import { useDebouncedCallback } from 'use-debounce';
+
+// Inside the Search Component...
+const handleSearch = useDebouncedCallback((term) => {
+  console.log(`Searching... ${term}`);
+
+  const params = new URLSearchParams(searchParams);
+  if (term) {
+    params.set('query', term);
+  } else {
+    params.delete('query');
+  }
+  replace(`${pathname}?${params.toString()}`);
+}, 300);
+```
+
+A proxima parte é adicionar a paginação.
+No `dashboard/invoices/page.tsx`
+
+```TSX
+// ...
+import { fetchInvoicesPages } from '@/app/lib/data';
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: {
+    query?: string,
+    page?: string,
+  },
+}) {
+  const query = searchParams?.query || '';
+  const currentPage = Number(searchParams?.page) || 1;
+
+  const totalPages = await fetchInvoicesPages(query);
+
+  return (
+    // ...
+  );
+}
+```
+
+Depois vamos passar `totalPages` para o `<Pagination/>`
+
+```TSX
+// ...
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: {
+    query?: string;
+    page?: string;
+  };
+}) {
+  const query = searchParams?.query || '';
+  const currentPage = Number(searchParams?.page) || 1;
+
+  const totalPages = await fetchInvoicesPages(query);
+
+  return (
+    <div className="w-full">
+      <div className="flex w-full items-center justify-between">
+        <h1 className={`${lusitana.className} text-2xl`}>Invoices</h1>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-2 md:mt-8">
+        <Search placeholder="Search invoices..." />
+        <CreateInvoice />
+      </div>
+      <Suspense key={query + currentPage} fallback={<InvoicesTableSkeleton />}>
+        <Table query={query} currentPage={currentPage} />
+      </Suspense>
+      <div className="mt-5 flex w-full justify-center">
+        <Pagination totalPages={totalPages} />
+      </div>
+    </div>
+  );
+}
+```
+
+No `app/ui/invoices/pagination.tsx`
+
+```TSX
+'use client';
+
+import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import clsx from 'clsx';
+import Link from 'next/link';
+import { generatePagination } from '@/app/lib/utils';
+import { usePathname, useSearchParams } from 'next/navigation';
+
+export default function Pagination({ totalPages }: { totalPages: number }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentPage = Number(searchParams.get('page')) || 1;
+
+  // ...
+}
+```
+
+Descomentamos o componente, e depois adicionamos a função `createPageURL`
+
+```TSX
+'use client';
+
+import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import clsx from 'clsx';
+import Link from 'next/link';
+import { generatePagination } from '@/app/lib/utils';
+import { usePathname, useSearchParams } from 'next/navigation';
+
+export default function Pagination({ totalPages }: { totalPages: number }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentPage = Number(searchParams.get('page')) || 1;
+
+  const createPageURL = (pageNumber: number | string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', pageNumber.toString());
+    return `${pathname}?${params.toString()}`;
+  };
+
+  // ...
+}
+```
+
+A ultima coisa nas buscas e paginações é resetar a pagina quando editamos o filtro na busca
+
+```TSX
+'use client';
+
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useDebouncedCallback } from 'use-debounce';
+
+export default function Search({ placeholder }: { placeholder: string }) {
+  const searchParams = useSearchParams();
+  const { replace } = useRouter();
+  const pathname = usePathname();
+
+  const handleSearch = useDebouncedCallback((term) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    if (term) {
+      params.set('query', term);
+    } else {
+      params.delete('query');
+    }
+    replace(`${pathname}?${params.toString()}`);
+  }, 300);
+
+```
