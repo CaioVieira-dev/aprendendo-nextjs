@@ -2214,3 +2214,11 @@ export const metadata: Metadata = {
   title: 'Invoices',
 };
 ```
+
+### Fim do tutorial
+
+Agora o tutorial terminou.
+Consegui entender um pouco melhor as funcionalidades basicas do next.
+Meu proximo passo vai ser implementar o tRPC no projeto do tutorial
+
+## 3. tRPC no Next.js
